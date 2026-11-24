@@ -222,7 +222,7 @@ app.post("/agents", async (c) => {
   // Upsert agent
   await c.env.DB.prepare(`
     INSERT INTO agents (agent_name, display_name, description, url, stx_address, btc_address, bns_name, status, version, skill_count, sensor_count, last_heartbeat, registered_at, updated_at)
-    VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)
+    VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, COALESCE(?8, 'online'), ?9, COALESCE(?10, 0), COALESCE(?11, 0), ?12, ?13, ?14)
     ON CONFLICT(agent_name) DO UPDATE SET
       display_name = COALESCE(?2, display_name),
       description = COALESCE(?3, description),
@@ -245,18 +245,18 @@ app.post("/agents", async (c) => {
       body.stx_address ?? null,
       body.btc_address ?? null,
       body.bns_name ?? null,
-      body.status ?? "online",
+      body.status ?? null,
       body.version ?? null,
-      body.skill_count ?? 0,
-      body.sensor_count ?? 0,
+      body.skill_count ?? null,
+      body.sensor_count ?? null,
       ts, // last_heartbeat
       ts, // registered_at
       ts  // updated_at
     )
     .run();
 
-  // Replace capabilities if provided (batched for atomicity)
-  if (body.capabilities && body.capabilities.length > 0) {
+  // Replace capabilities if provided (an explicit [] clears them; omitted = untouched)
+  if (body.capabilities) {
     const deleteStmt = c.env.DB.prepare("DELETE FROM capabilities WHERE agent_name = ?")
       .bind(body.agent_name);
 
